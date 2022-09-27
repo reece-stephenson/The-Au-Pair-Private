@@ -316,4 +316,12 @@ export class API{
     }
     return this.http.post(environment.apiURI+"/setFCMToken",fcmObject);
   }
+
+  testSonarCloud(id : string, token : string): Observable<any> {
+    var fcmObject = {
+      "id" : id,
+      "token" : token
+    }
+    return this.http.post(environment.apiURI+"/getFCMToken",id, {responseType: 'text'});
+  }
 }
