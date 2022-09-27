@@ -265,7 +265,7 @@ export class AuPairCostComponent implements OnInit {
 
   getStartDateOfWeek(dow : number) {
     const now = new Date();
-    const day = now.getDay();
+    var day = now.getDay();
     now.setMonth(now.getMonth()+1);
     
     const diff =  new Date(now.setDate(now.getDate() - day + dow + (day == 0 ? 6:1)));
