@@ -10,6 +10,7 @@ import { AlertController } from '@ionic/angular';
   selector: 'the-au-pair-au-pair-cost',
   templateUrl: './au-pair-cost.component.html',
   styleUrls: ['./au-pair-cost.component.scss'],
+  providers: [API]
 })
 export class AuPairCostComponent implements OnInit {
 
@@ -37,7 +38,7 @@ export class AuPairCostComponent implements OnInit {
 
   travelCost = 0;
   activityCost = 0;
-  otherCost = 0;
+  otherCost = 180;
   totalCost = 0;
 
   otherDeg = 0;
@@ -55,7 +56,7 @@ export class AuPairCostComponent implements OnInit {
     });
 
     modal.onDidDismiss().then(() => {
-      this.api.getCurrentMonthCostsForJob(this.aupairID, this.parentID).toPromise().then(
+      this.api.getCurrentMonthCostsForJob(this.aupairID, this.parentID).subscribe(
         data => { 
           this.costList = data;
         },
@@ -63,8 +64,6 @@ export class AuPairCostComponent implements OnInit {
           console.log("Error has occured with API: " + error);
         }
       )
-
-      this.setCosts();
     });
 
     await modal.present();
@@ -115,7 +114,7 @@ export class AuPairCostComponent implements OnInit {
       )
     }
 
-    this.api.getUser(this.aupairID).toPromise().then( 
+    this.api.getUser(this.aupairID).subscribe( 
       data => { 
         this.auPairName = data.fname
       },
@@ -124,7 +123,7 @@ export class AuPairCostComponent implements OnInit {
       }
     )
 
-    await this.api.getMonthMinutes(this.aupairID, this.getStartDateOfWeek(0)).toPromise().then( 
+    this.api.getMonthMinutes(this.aupairID, this.getStartDateOfWeek(0)).subscribe( 
       data => {
         this.totalHours = Number((data/60).toFixed(2));
       },
@@ -140,9 +139,16 @@ export class AuPairCostComponent implements OnInit {
         this.hourlyRate = data.payRate;
         this.travelCost = data.distTraveled;
         this.activityCost = data.costIncurred;
+        this.otherCost = 0;
+        this.totalCost = this.travelCost + this.activityCost + this.otherCost;
+        this.totalCost = Number(this.totalCost.toFixed(3));
+        this.totalRemuneration = (this.hourlyRate * this.totalHours) + this.totalCost;
+        this.totalRemuneration = Number(this.totalRemuneration.toFixed(3));
 
-        this.populateDaysCost();        
+        this.calculatePie(this.otherCost, this.activityCost, this.totalCost);
+        this.populateDaysCost();
         this.dateRange = this.dateRangeToString(7);
+        this.pieSplit = "conic-gradient(var(--ion-color-primary)" + this.otherDeg + "deg, var(--ion-color-secondary) 0 " + this.activityDeg + "deg, var(--ion-color-champagne) 0)";
       },
       error => {
         console.log("Error has occured with API: " + error);
@@ -151,7 +157,7 @@ export class AuPairCostComponent implements OnInit {
 
     if(this.store.snapshot().user.type === 2) 
     {
-      this.api.getUser(this.parentID).toPromise().then( 
+      this.api.getUser(this.parentID).subscribe( 
         data => { 
           this.employerName = data.fname
         },
@@ -161,7 +167,7 @@ export class AuPairCostComponent implements OnInit {
       )
     }
 
-    this.api.getCurrentMonthCostsForJob(this.aupairID, this.parentID).toPromise().then(
+    this.api.getCurrentMonthCostsForJob(this.aupairID, this.parentID).subscribe(
       data => { 
         this.costList = data;
       },
@@ -169,70 +175,18 @@ export class AuPairCostComponent implements OnInit {
         console.log("Error has occured with API: " + error);
       }
     )
-
-    this.setCosts();
   }
 
-  async setCosts() {
-    this.totalCost = 0;
-
-    this.api.getTotalMonthCostsForFuel(this.aupairID, this.parentID).toPromise().then(
-      data => { 
-        this.travelCost = data;
-        this.totalCost += this.travelCost;
-
-        this.calculateTotals(this.otherCost, this.activityCost, this.totalCost);
-      },
-      error => {
-        console.log("Error has occured with API: " + error);
-        this.travelCost = 0;
-      }
-    )
-
-    this.api.getTotalMonthCostsForOvertime(this.aupairID, this.parentID).toPromise().then(
-      data => { 
-        this.activityCost = data;
-        this.totalCost += this.activityCost;
-
-        this.calculateTotals(this.otherCost, this.activityCost, this.totalCost);
-      },
-      error => {
-        console.log("Error has occured with API: " + error);
-        this.activityCost = 0;
-      }
-    )
-
-    this.api.getTotalMonthCostsForOther(this.aupairID, this.parentID).toPromise().then(
-      data => { 
-        this.otherCost = data;
-        this.totalCost += this.otherCost;
-    
-        this.calculateTotals(this.otherCost, this.activityCost, this.totalCost);
-      },
-      error => {
-        console.log("Error has occured with API: " + error);
-        this.otherCost = 0;
-      }
-    )
-  }
-
-  calculateTotals(other:number, act:number, total:number) {
+  calculatePie(other:number, act:number, total:number) {
     this.otherDeg = (360/total)*other;
     this.activityDeg = this.otherDeg + (360/total)*act;
-
-    this.totalRemuneration = (this.hourlyRate * this.totalHours) + this.totalCost;
-
-    this.totalCost = Number(this.totalCost.toFixed(3));
-    this.totalRemuneration = Number(this.totalRemuneration.toFixed(3));
-
-    this.pieSplit = "conic-gradient(var(--ion-color-primary)" + this.otherDeg + "deg, var(--ion-color-secondary) 0 " + this.activityDeg + "deg, var(--ion-color-champagne) 0)";
   }
 
-  async populateDaysCost() {
+  populateDaysCost() {
     for (let i = 0; i < 7; i++) {
       
       const weekDay = this.getStartDateOfWeek(i);
-      this.api.getDateMinutes(this.aupairID, weekDay).toPromise().then( 
+      this.api.getDateMinutes(this.aupairID, weekDay).subscribe( 
         data => {
           this.dayHoursWorked[i] = data/60;
         },
@@ -243,8 +197,8 @@ export class AuPairCostComponent implements OnInit {
     }
   }
 
-  async deleteCost(id: string) {
-    this.api.removeUserCost(id).toPromise().then(
+  deleteCost(id: string) {
+    this.api.removeUserCost(id).subscribe(
       data => { 
         console.log(data);
       },
@@ -253,14 +207,7 @@ export class AuPairCostComponent implements OnInit {
       }
     )
 
-    this.api.getCurrentMonthCostsForJob(this.aupairID, this.parentID).toPromise().then(
-      data => { 
-        this.costList = data;
-      },
-      error => {
-        console.log("Error has occured with API: " + error);
-      }
-    )
+    location.reload();
   }
 
   getStartDateOfWeek(dow : number) {
@@ -302,10 +249,7 @@ export class AuPairCostComponent implements OnInit {
         {
           text: 'Yes',
           cssClass: 'alert-button-confirm',
-          handler: () => { 
-            this.deleteCost(id); 
-            this.setCosts();
-          }
+          handler: () => { this.deleteCost(id); }
         }
       ]
     });
